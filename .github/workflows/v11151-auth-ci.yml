@@ -142,13 +142,13 @@ jobs:
           from zipfile import ZipFile
           path=Path('ci-source-v11151/v11151-source-delta.zip.base64')
           contents=base64.b64decode(b''.join(path.read_bytes().split()),validate=True)
-          assert hashlib.sha256(contents).hexdigest()=='f620ca277bde7c87cf2c9c1918c3ac4dd474f29cabbfbf5b80ebb1b4dc41fbf8','V11.151 delta hash mismatch'
+          assert hashlib.sha256(contents).hexdigest()=='326c7ffc001906ef3cc6ee23657ff38c17254ad325ba00709e1fafb66ca568b4','V11.151 delta hash mismatch'
           root=Path('source')
           with ZipFile(io.BytesIO(contents)) as archive:
             manifest=json.loads(archive.read('V11_151_PATCH_MANIFEST.json'))
             files=manifest['files']
-            assert manifest['base']=='V11.150.4' and manifest['target']=='V11.151.1'
-            assert len(files)==31,'V11.151 patch count unexpected'
+            assert manifest['base']=='V11.150.4' and manifest['target']=='V11.151.2'
+            assert len(files)==32,'V11.151 patch count unexpected'
             assert set(archive.namelist())==set(r['path'] for r in files)|{'V11_151_PATCH_MANIFEST.json'},'Unexpected patch members'
             for item in files:
               name=item['path']
@@ -161,7 +161,7 @@ jobs:
               assert hashlib.sha256(new).hexdigest()==item['newSha256'],'Patch corruption: '+name
               target.parent.mkdir(parents=True,exist_ok=True)
               target.write_bytes(new)
-          print('PASS: 31 SHA-verified changes applied to V11.150 baseline in isolated test working directory')
+          print('PASS: 32 SHA-verified changes applied to V11.150 baseline in isolated test working directory')
           PY
       - name: Check Node/npm and lockfile
         run: |
