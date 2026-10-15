@@ -72,6 +72,7 @@ test('reference sources are tracked as explicit file+lockfile SHA, not AI-writte
 
 test('all 21 method envelopes pin first-party dependency closure instead of only a headline file',()=>{
  for(const m of coverage.disciplines){
+  assert.equal(Object.isFrozen(E.methodFor(m.methodId)),true);
   const envelope=E.createEvidence({...meta(m.methodId),input:{symbol:'demo'},calculated:{result:'internal witness only'}});
   assert.equal(envelope.discipline,m.id);assert.ok(envelope.sourceClosureCount>=1);
   assert.equal(E.verifyEvidence(envelope,{repositoryRoot:root}).status,'MATCHES_FROZEN_METHOD');
