@@ -1,23 +1,43 @@
 {
-  "purpose": "V11.150 current homepage SSR marker: keep contract test aligned with real UI, no UI change",
+  "purpose": "V11.150 regression: match current homepage and verify anonymous protected-tool login gates; no UI/auth behavior change",
   "patches": [
     {
       "path": "infrastructure/scripts/read-only-route-manifest.mjs",
       "originalSha256": "dae27d7dc8753c42354ac6dc16754ac0b177f6311764dbbf40b6d62b6ba597c4",
-      "from": "{path:'/', marker:'Khám phá vận đồ'}",
-      "to": "{path:'/', marker:'Một thư phòng.'}"
+      "replacements": [
+        {
+          "from": "{path:'/', marker:'Khám phá vận đồ'}",
+          "to": "{path:'/', marker:'Một thư phòng.'}"
+        },
+        {
+          "from": "    {path:'/chart', marker:'THIÊN ĐỒ'},\n    {path:'/calendar', marker:'Lịch'},\n    {path:'/good-days', marker:'ngày'},\n    {path:'/bazi', marker:'Tứ trụ'},",
+          "to": "    // Protected tools must SSR the anonymous auth gate, NOT their content.\n    // Authenticated content and redirects require separate browser checks.\n    {path:'/chart', marker:'Đang kiểm tra tài khoản'},\n    {path:'/calendar', marker:'Đang kiểm tra tài khoản'},\n    {path:'/good-days', marker:'Đang kiểm tra tài khoản'},\n    {path:'/bazi', marker:'Đang kiểm tra tài khoản'},"
+        }
+      ]
     },
     {
       "path": "tests/v105-api-identity.test.cjs",
       "originalSha256": "ef0ac59a12377caa7695ce7a5ae43ee90674725f912b47092a8a7ead51119805",
-      "from": "['/', 'Khám phá vận đồ']",
-      "to": "['/', 'Một thư phòng.']"
+      "replacements": [
+        {
+          "from": "['/', 'Khám phá vận đồ']",
+          "to": "['/', 'Một thư phòng.']"
+        },
+        {
+          "from": "['/chart', 'THIÊN ĐỒ'], ['/calendar', 'Lịch'],\n  ['/good-days', 'ngày'], ['/bazi', 'Tứ trụ']",
+          "to": "['/chart', 'Đang kiểm tra tài khoản'], ['/calendar', 'Đang kiểm tra tài khoản'],\n  ['/good-days', 'Đang kiểm tra tài khoản'], ['/bazi', 'Đang kiểm tra tài khoản']"
+        }
+      ]
     },
     {
       "path": "tests/next-proxy-smoke.mjs",
       "originalSha256": "589334ce55a343aa0fcaa2e8628726f939ce3c45a0391626b3e686928628118d",
-      "from": "  assert.ok(html.includes('<html') && html.includes(route.marker),",
-      "to": "  if (!html.includes(route.marker)) console.error('SSR_ROUTE_DIAGNOSTIC', route.path, 'length', html.length, 'BODY', html.slice(0, 4500));\n  assert.ok(html.includes('<html') && html.includes(route.marker),"
+      "replacements": [
+        {
+          "from": "  assert.ok(html.includes('<html') && html.includes(route.marker),",
+          "to": "  if (!html.includes(route.marker)) console.error('SSR_ROUTE_DIAGNOSTIC', route.path, 'length', html.length, 'BODY', html.slice(0, 4500));\n  assert.ok(html.includes('<html') && html.includes(route.marker),"
+        }
+      ]
     }
   ]
 }
