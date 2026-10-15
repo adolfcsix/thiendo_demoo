@@ -4,7 +4,6 @@ on:
     branches: ["audit/v11.150"]
     paths:
       - "THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip"
-      - ".github/workflows/v11150-source-zip-ci.yml"
   workflow_dispatch:
 permissions:
   contents: read
