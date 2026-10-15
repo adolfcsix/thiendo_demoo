@@ -259,6 +259,11 @@ jobs:
             path.write_text(content)
           print('PASS: migrations 001–020 and current navigation contracts updated with source SHA guards')
           PY
+      - name: Restore SHA-pinned V11.155 private library candidate
+        working-directory: .
+        run: python3 ci-scripts/v11155-restore.py
+      - name: Test book access, EPUB safety and library migrations
+        run: node --test tests/v11155-library-contract.test.cjs tests/v11149-1-restore-schema-contract.test.cjs tests/v1181-navigation-tree.test.cjs
       - name: V11.152 independent method inventory and frozen rule proof
         run: npm run audit:phase3:contracts && npm run test:v11152
       - name: Verify Huyen Giai data redaction, schema, citations and prompt-injection contracts
