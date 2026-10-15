@@ -141,8 +141,8 @@ jobs:
         run: npm run db:migrate && npm run db:migrate
       - name: Check isolated PostgreSQL test target
         run: npm run check:e2e-target && npm run check:e2e-db
-      - name: Run PostgreSQL API integration E2E
-        run: npm run test:e2e
+      - name: Live Next/Nest/PostgreSQL HTTP E2E (start and stop first-party servers safely)
+        run: bash infrastructure/scripts/run-ci-http.sh
       - name: State remaining acceptance gates
         if: always()
         working-directory: .
