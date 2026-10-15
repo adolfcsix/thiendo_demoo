@@ -3,6 +3,7 @@ on:
   push:
     branches: ["audit/v11.150"]
     paths:
+      - "ci-source-b64/**"
       - "THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip"
   workflow_dispatch:
 permissions:
@@ -56,6 +57,17 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          root = Path("ci-source-b64")
+          parts = sorted(root.glob("part-*.b64"))
+          assert [p.name for p in parts] == [f"part-{i:02d}.b64" for i in range(7)], "Expected all seven audited transfer shards"
+          data = b"".join(p.read_bytes() for p in parts)
+          archive = base64.b64decode(b"".join(data.split()), validate=True)
+          Path("THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip").write_bytes(archive)
+          print("Reconstructed audited archive from seven GitHub source shards:", len(archive), "bytes")
+          PY
           echo "dab5b902d5557d08d5eaab7d5853778505f05248c22a26c723b31fbe954dc0a2  THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip" | sha256sum --check
           python3 - <<'PY'
           from pathlib import Path
