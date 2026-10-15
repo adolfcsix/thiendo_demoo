@@ -27,6 +27,12 @@ CI run [38678297935](https://github.com/adolfcsix/thiendo_demoo/actions/runs/386
 
 **Không loại bỏ/assertion yếu đi để đạt xanh.** CI branch đã có công cụ chẩn đoán cả DOM `table`, accessible table, nội dung trang và trạng thái ARIA. Cần đối chiếu screenshots + DOM và sửa lỗi thực tế hoặc kiểm thử có hợp đồng không đúng.
 
+### Kết quả bổ sung được kiểm chứng
+- [Run #38679170769](https://github.com/adolfcsix/thiendo_demoo/actions/runs/38679170769): Chromium responsive **35/35 PASS** trên 5 route × 7 viewport (320,375,390,768,1024,1440,1920px); không chứng minh toàn bộ trang và máy thật.
+- Cùng run: **pg_dump + pg_restore disposable PostgreSQL 16: PASS**, **npm audit production snapshot: 0 high/critical**; browser acceptance vẫn FAIL 4/18.
+- Read-only source gate: 932 files inspected, 200 TS/TSX parsed, 644 JS syntax checks and 1,812 relative imports — PASS cục bộ. CSS historical dedupe audit: 17 declaration removal verified, 28 baseline sheets reconstruct. Maintainability inventory: 446 source files; 33 oversized/long-line candidates.
+- HTTP E2E baseline exercises real disposable API registration/login, cookie sessions and cross-account chart/study ownership. This is NOT equivalent to real OAuth/production login/browser UI flows.
+
 ## 4. Công việc tiếp tục đã commit trên nhánh audit
 
 - Pinned Playwright Chromium `1.56.1` + 18 browser acceptance suites + lưu artifact log.
@@ -54,7 +60,8 @@ CI run [38678297935](https://github.com/adolfcsix/thiendo_demoo/actions/runs/386
 | 7 viewport responsive | Đang đưa vào CI, chưa ghi nhận PASS |
 | npm security high/critical | Đang đưa vào CI, chưa ghi nhận kết quả |
 | PostgreSQL CI pg_dump/restore | Đang đưa vào CI, chưa ghi nhận kết quả |
-| Auth thực với session, OAuth Google và phân quyền toàn bộ | Chưa xác minh |
+| API register/login + cookie session, ownership & cross-user 404 | PASS trong PostgreSQL HTTP E2E baseline; cần tăng coverage theo toàn bộ role |
+| Browser login/UI với session thật, OAuth Google và RBAC mọi nhóm quyền | Chưa xác minh |
 | PayOS webhook/chữ ký/sandbox end-to-end | Chưa xác minh |
 | Backup/restore production, rollback, RPO/RTO | Chưa xác minh |
 | Tải và độ bền, secrets, threat model và quan sát lỗi | Chưa xác minh |
