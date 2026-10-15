@@ -1,0 +1,45 @@
+{
+  "purpose": "Chromium diagnostics and verified mode-switch contract; preserve table assertions",
+  "patches": [
+    {
+      "path": "tests/natal-browser-smoke.mjs",
+      "originalSha256": "3014cbb24606f2beb7777c91c7aebf4bed31e2ea7881e993f6c67d38776e3746",
+      "replacements": [
+        {
+          "from": "const table=page.getByRole('table').filter({has:page.getByRole('columnheader',{name:'Thiên thể',exact:true})});",
+          "to": "console.log('NATAL_TABLE_DIAGNOSTIC',{raw:await page.locator('table').count(),role:await page.getByRole('table').count(),body:(await page.locator('body').innerText()).slice(-700)});const table=page.getByRole('table').filter({has:page.getByRole('columnheader',{name:'Thiên thể',exact:true})});"
+        }
+      ]
+    },
+    {
+      "path": "tests/timezone-browser-smoke.mjs",
+      "originalSha256": "0daf074b0cffe22a2a1520dec2b5b9cb4cb9ce71cfa4c2b903dbc88fa45f9b65",
+      "replacements": [
+        {
+          "from": "const sensitivity=page.getByRole('table').filter({has:page.getByRole('columnheader',{name:'Mẫu (phút)',exact:true})});",
+          "to": "console.log('TIMEZONE_TABLE_DIAGNOSTIC',{raw:await page.locator('table').count(),role:await page.getByRole('table').count(),body:(await page.locator('body').innerText()).slice(-650)});const sensitivity=page.getByRole('table').filter({has:page.getByRole('columnheader',{name:'Mẫu (phút)',exact:true})});"
+        }
+      ]
+    },
+    {
+      "path": "tests/system-depth-browser-smoke.mjs",
+      "originalSha256": "36ae41acdb4b89e7ea28f70a0eef6538304b26f35daa24526c3108315a77908e",
+      "replacements": [
+        {
+          "from": "await page.getByRole('button',{name:/Chuyển về Cơ bản/}).waitFor();",
+          "to": "assert.equal(await page.getByRole('button',{name:'Chuyên sâu',exact:true}).getAttribute('aria-pressed'),'true','Global mode switch must activate Expert state');"
+        }
+      ]
+    },
+    {
+      "path": "tests/star-source-browser-smoke.mjs",
+      "originalSha256": "4093b3172bde2eb4f0de9cbb5476408f35be5c9e2a892f543ac4a8b42cfbda37",
+      "replacements": [
+        {
+          "from": "await table.waitFor();assert.equal(await table.locator('tbody tr').count(),15);",
+          "to": "try{await table.waitFor({timeout:10000});}catch(error){console.error('STAR_SOURCE_DIAGNOSTIC',{url:page.url(),rawTables:await page.locator('table').count(),roleTables:await page.getByRole('table').count(),body:(await page.locator('body').innerText()).slice(0,2200)});throw error;}assert.equal(await table.locator('tbody tr').count(),15);"
+        }
+      ]
+    }
+  ]
+}
