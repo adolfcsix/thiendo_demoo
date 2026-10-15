@@ -160,6 +160,13 @@ jobs:
         run: npm run db:migrate && npm run db:migrate
       - name: Check isolated PostgreSQL test target
         run: npm run check:e2e-target && npm run check:e2e-db
+      - name: Install isolated Chromium and Playwright for real browser UI checks
+        run: |
+          npm install --prefix "$RUNNER_TEMP/thiendo-playwright" --no-save --no-package-lock --ignore-scripts playwright@1.56.1
+          node "$RUNNER_TEMP/thiendo-playwright/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "THIENDO_PLAYWRIGHT_MODULE=$RUNNER_TEMP/thiendo-playwright/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          echo "THIENDO_BROWSER_ACCEPTANCE=1" >> "$GITHUB_ENV"
+          echo "THIENDO_BROWSER_REPORT_DIR=$GITHUB_WORKSPACE/browser-evidence" >> "$GITHUB_ENV"
       - name: Live Next/Nest/PostgreSQL HTTP E2E (start and stop first-party servers safely)
         run: |
           if bash infrastructure/scripts/run-ci-http.sh; then
@@ -172,6 +179,17 @@ jobs:
           if test -f api-ci.log; then tail -n 60 api-ci.log; else echo "No API log generated"; fi
           echo "::endgroup::"
           exit 1
+      - name: Collect browser acceptance and HTTP diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v11150-browser-evidence
+          path: |
+            browser-evidence/**/*
+            source/web-ci.log
+            source/api-ci.log
+          if-no-files-found: ignore
+          retention-days: 7
       - name: State remaining acceptance gates
         if: always()
         working-directory: .
