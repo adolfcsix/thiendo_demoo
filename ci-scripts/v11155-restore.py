@@ -9,12 +9,12 @@ import json
 
 encoded = Path("ci-source-v11155/source-delta.zip.base64").read_bytes()
 archive_bytes = base64.b64decode(b"".join(encoded.split()), validate=True)
-assert sha256(archive_bytes).hexdigest() == "090c6da1a7287d10d7483f0783612fa644c3459d379cf8a5f1d90dc53cc1e1bb", "V11.155 delta signature mismatch"
+assert sha256(archive_bytes).hexdigest() == "3597254e970f22e871438b6d7cbfe0eccd784b5a1cc4bc6a5aa7f617998fcd84", "V11.155 delta signature mismatch"
 with ZipFile(io.BytesIO(archive_bytes)) as archive:
     manifest = json.loads(archive.read("V11_155_PATCH_MANIFEST.json"))
     assert manifest["base"] == "V11.154.5-candidate" and manifest["target"] == "V11.155.0-candidate"
     items = manifest["files"]
-    assert len(items) == 24
+    assert len(items) == 25
     assert set(archive.namelist()) == {entry["path"] for entry in items} | {"V11_155_PATCH_MANIFEST.json"}
     for entry in items:
         name = entry["path"]
@@ -27,4 +27,4 @@ with ZipFile(io.BytesIO(archive_bytes)) as archive:
         assert sha256(content).hexdigest() == entry["newSha256"], "Payload corruption: " + name
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_bytes(content)
-print("PASS: V11.155 24 source changes independently hash-verified and restored")
+print("PASS: V11.155 25 source changes independently hash-verified and restored")
