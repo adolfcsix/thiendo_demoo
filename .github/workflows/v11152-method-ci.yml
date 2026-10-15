@@ -1,0 +1,244 @@
+name: "Thiên Đồ V11.152 — Independent Method Provenance CI"
+on:
+  push:
+    branches: ["audit/v11.152"]
+    paths:
+      - "ci-source-b64/**"
+      - "verification/v11150/migrations-immutable-baseline.json"
+      - "ci-fixtures/v11150-required.json"
+      - "ci-overrides/**"
+      - ".github/workflows/v11150-source-zip-ci.yml"
+      - "ci-source-v11152/**"
+      - ".github/workflows/v11152-method-ci.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: v11152-method-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  source-audit:
+    name: "V11.152: method gate · npm ci · Regression · Build · PostgreSQL"
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: thiendo
+          POSTGRES_PASSWORD: thiendo_ci_only
+          POSTGRES_DB: thiendo_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U thiendo -d thiendo_test"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      DATABASE_URL: "postgresql://thiendo:thiendo_ci_only@127.0.0.1:5432/thiendo_test"
+      WEB_ORIGIN: "http://127.0.0.1:3000"
+      COOKIE_SECURE: "false"
+      API_PORT: "8080"
+      API_HOST: "127.0.0.1"
+      E2E_LOCAL_DB_CONFIRM: "YES"
+      NEXT_BASE_URL: "http://127.0.0.1:3000"
+      API_BASE_URL: "http://127.0.0.1:3000"
+      API_INTERNAL_URL: "http://127.0.0.1:8080"
+      CI: "true"
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: source
+    steps:
+      - name: Checkout audit branch only
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate signed-off ZIP hash, member paths and manifest before extraction
+        working-directory: .
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          root = Path("ci-source-b64")
+          parts = sorted(root.glob("part-*.b64"))
+          assert [p.name for p in parts] == [f"part-{i:02d}.b64" for i in range(7)], "Expected all seven audited transfer shards"
+          data = b"".join(p.read_bytes() for p in parts)
+          archive = base64.b64decode(b"".join(data.split()), validate=True)
+          Path("THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip").write_bytes(archive)
+          print("Reconstructed audited archive from seven GitHub source shards:", len(archive), "bytes")
+          PY
+          echo "dab5b902d5557d08d5eaab7d5853778505f05248c22a26c723b31fbe954dc0a2  THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip" | sha256sum --check
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import hashlib, json
+          archive = Path("THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip")
+          dest = Path("source")
+          with ZipFile(archive) as z:
+              names = z.namelist()
+              expected = json.loads(z.read("PUBLIC_CI_SOURCE_MANIFEST.json"))["sha256"]
+              assert len(expected) == 1855, "Unexpected source count"
+              assert set(names) == set(expected) | {"PUBLIC_CI_SOURCE_MANIFEST.json"}, "Manifest members mismatch"
+              for info in z.infolist():
+                  name = info.filename
+                  parts = Path(name).parts
+                  assert not name.startswith("/") and ".." not in parts and "\\" not in name, "Unsafe ZIP entry"
+                  assert not (info.external_attr >> 16) & 0o170000 == 0o120000, "Symlink rejected"
+                  if name in expected:
+                      assert hashlib.sha256(z.read(name)).hexdigest() == expected[name], "File integrity mismatch: " + name
+              dest.mkdir()
+              z.extractall(dest)
+          print("PASS — exact archive hash, 1,855 source-file hashes, safe paths and extraction")
+          PY
+          mkdir -p source/verification/v11150
+          cp verification/v11150/migrations-immutable-baseline.json source/verification/v11150/migrations-immutable-baseline.json
+          python3 - <<'PY'
+          import base64, hashlib, json
+          from pathlib import Path
+          payload = json.loads(Path("ci-fixtures/v11150-required.json").read_text())
+          fixtures = payload["files"]
+          assert len(fixtures) == 7, "Unexpected historical regression fixture count"
+          for name, entry in fixtures.items():
+              assert name.startswith("previews/") or name == "docs/reports/V11_147_SOURCE_DEPTH_AUDIT.json", name
+              assert ".." not in Path(name).parts and not name.startswith("/"), name
+              data = base64.b64decode(entry["base64"], validate=True)
+              assert hashlib.sha256(data).hexdigest() == entry["sha256"], name
+              target = Path("source") / name
+              assert not target.exists(), "Fixture must not replace a checked-in source archive file"
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(data)
+          print("Restored 7 SHA-256 verified frozen regression fixtures")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          patches = json.loads(Path("ci-overrides/v11150-home-ssr-contract.json").read_text())["patches"]
+          assert len(patches) == 3, "Only two read-only route marker patches authorized"
+          for patch in patches:
+              assert patch["path"] in ["infrastructure/scripts/read-only-route-manifest.mjs", "tests/v105-api-identity.test.cjs", "tests/next-proxy-smoke.mjs"], patch["path"]
+              source = Path("source") / patch["path"]
+              original = source.read_bytes()
+              assert hashlib.sha256(original).hexdigest() == patch["originalSha256"], "Original source differs; do not apply overlay"
+              text = original.decode("utf-8")
+              assert 1 <= len(patch["replacements"]) <= 3, "Unreviewed route contract patch"
+              for change in patch["replacements"]:
+                  assert text.count(change["from"]) == 1, "Expected exactly one route contract marker"
+                  text = text.replace(change["from"], change["to"])
+              source.write_text(text, encoding="utf-8")
+          print("PASS — three SHA-pinned SSR contract fixes (homepage, login gates, smoke diagnostics) applied")
+          PY
+      - name: Restore SHA-verified V11.151 security changes (fail closed)
+        working-directory: .
+        run: |
+          python3 - <<'PY'
+          import base64,hashlib,io,json
+          from pathlib import Path
+          from zipfile import ZipFile
+          path=Path('ci-source-v11151/v11151-source-delta.zip.base64')
+          contents=base64.b64decode(b''.join(path.read_bytes().split()),validate=True)
+          assert hashlib.sha256(contents).hexdigest()=='326c7ffc001906ef3cc6ee23657ff38c17254ad325ba00709e1fafb66ca568b4','V11.151 delta hash mismatch'
+          root=Path('source')
+          with ZipFile(io.BytesIO(contents)) as archive:
+            manifest=json.loads(archive.read('V11_151_PATCH_MANIFEST.json'))
+            files=manifest['files']
+            assert manifest['base']=='V11.150.4' and manifest['target']=='V11.151.2'
+            assert len(files)==32,'V11.151 patch count unexpected'
+            assert set(archive.namelist())==set(r['path'] for r in files)|{'V11_151_PATCH_MANIFEST.json'},'Unexpected patch members'
+            for item in files:
+              name=item['path']
+              assert not name.startswith('/') and '..' not in Path(name).parts and '\\' not in name
+              target=root/name
+              previous=target.read_bytes() if target.exists() else None
+              if item['oldSha256'] is None: assert previous is None,'Unexpected preexisting file '+name
+              else: assert previous is not None and hashlib.sha256(previous).hexdigest()==item['oldSha256'],'Source drift: '+name
+              new=archive.read(name)
+              assert hashlib.sha256(new).hexdigest()==item['newSha256'],'Patch corruption: '+name
+              target.parent.mkdir(parents=True,exist_ok=True)
+              target.write_bytes(new)
+          print('PASS: 32 SHA-verified changes applied to V11.150 baseline in isolated test working directory')
+          PY
+      - name: Restore SHA-verified V11.152 evidence method additions (NO ALGORITHM REPLACEMENT)
+        working-directory: .
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          manifest={
+            'verification/v11152/method-coverage.json':('e9db76aea56c07f20ad37a274cd747688f1ceda153a09647da52c1369d4cd1b9','aa0579a82714148f0612b35917ff7d5e59b60d3149ccabad3ac9245528911058'),
+            'packages/astrology-engine/src/method-evidence-v11152.cjs':('121714e4095f9180ba288a3d0e90efddd839605efccceb7d077f2859507767ae','0a5a841f5e83c096eb3222be121af54c00c4477c0d1a9c918c3b5291bf617093'),
+            'infrastructure/scripts/audit-phase3-contracts.cjs':('4778e157b1f18be30f22b9eab48becc29fe166b757fffc35cf7fb05c90731b50','0304e926c098f613b52b5e5dbe464291319f538766e789dcd0e9e10c0b07ca9a'),
+            'tests/v11152-method-evidence.test.cjs':('4a60c076d4843be1ed950f053dbc95bb3d3755544ada767681ae4f56b88931b3','b7d34983161e3e15d98dc36ba3ac671c62e3514bd2b68a869a805d10e2208a6c'),
+            'package.json':('eabde76c1e66627bbcc6752c3ef5ffb2a8dd689bf38cfa796ec0adbb8feddc0a','2fd7a19624cf8c7d134d8d5aaeee24df20c17fca2a257d20f005ea2e6ae4c14e'),
+          }
+          base=Path('source');delta=Path('ci-source-v11152')
+          allowed={*manifest}
+          actual={str(p.relative_to(delta)) for p in delta.rglob('*') if p.is_file()}
+          assert actual==allowed, 'Unexpected/missing patch payload'
+          for name,(raw_sha,full_sha) in manifest.items():
+              incoming=(delta/name).read_bytes()
+              assert hashlib.sha256(incoming).hexdigest()==raw_sha, 'Changed patch content: '+name
+              target=base/name
+              if name=='package.json':
+                  assert hashlib.sha256(target.read_bytes()).hexdigest()=='2a6388390332db65a5c9ac2586c63ff36ac48915fb916136d324939a8453e253','V11.151 base package drift'
+              else:
+                  assert not target.exists(), 'Unexpected preexisting V11.152 file '+name
+              restored=incoming+b'\n'
+              assert hashlib.sha256(restored).hexdigest()==full_sha, 'Full source hash mismatch: '+name
+              target.parent.mkdir(parents=True,exist_ok=True)
+              target.write_bytes(restored)
+          print('PASS: 5 exact V11.152 method additions restored; no old algorithm overwritten')
+          PY
+      - name: V11.152 independent method inventory and frozen rule proof
+        run: npm run audit:phase3:contracts && npm run test:v11152
+      - name: Check Node/npm and lockfile
+        run: |
+          node -v
+          npm -v
+          npm config get registry
+          npm run check:lockfile
+      - name: Install pinned dependencies using strict lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Verify installed workspace CLI dependencies
+        run: node infrastructure/scripts/dependency-install-check.mjs
+      - name: Check architecture and source imports
+        run: npm run check:source && npm run audit:architecture
+      - name: Typecheck both API and web
+        run: npm run typecheck
+      - name: Lint when script exists
+        run: npm run lint --if-present
+      - name: Build both API and web
+        run: npm run build
+      - name: Full project test suite
+        run: npm test
+      - name: Assert disposable database is empty before migrations
+        run: npm run check:e2e-pre-migrate
+      - name: Migrate twice to test idempotency
+        run: npm run db:migrate && npm run db:migrate
+      - name: Check isolated PostgreSQL test target
+        run: npm run check:e2e-target && npm run check:e2e-db
+      - name: Live Next/Nest/PostgreSQL HTTP E2E with safe server lifecycle
+        run: |
+          bash infrastructure/scripts/run-ci-http.sh || { echo '::group::API diagnostic'; tail -n 70 api-ci.log || true; echo '::endgroup::'; echo '::group::Web diagnostic'; tail -n 70 web-ci.log || true; echo '::endgroup::'; exit 1; }
+      - name: Test two independent admin owners, TOTP MFA and access isolation via real Nest HTTP
+        run: npm run test:e2e:admin:151
+      - name: Verify disposable PostgreSQL pg_dump and restore
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get install -y --no-install-recommends postgresql-client-16
+          bash "$GITHUB_WORKSPACE/ci-scripts/v11150-backup-restore.sh"
+      - name: Report production dependency security audit
+        if: always()
+        run: |
+          npm audit --omit=dev --audit-level=high
+      - name: Acceptance notice
+        if: always()
+        working-directory: .
+        run: |
+          echo "V11.152 remains NO-GO: method source provenance unit tests are not independent school/astronomy validation, and V11.151 gates remain open." >> "$GITHUB_STEP_SUMMARY"
+          echo "CI uses disposable PostgreSQL; nothing deploys or merges into main." >> "$GITHUB_STEP_SUMMARY"
