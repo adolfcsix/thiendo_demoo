@@ -20,7 +20,7 @@ jobs:
   source-audit:
     name: "Lockfile · npm ci · Typecheck · Build · Tests · PostgreSQL E2E"
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 110
     services:
       postgres:
         image: postgres:16-alpine
@@ -146,6 +146,27 @@ jobs:
         run: node infrastructure/scripts/dependency-install-check.mjs
       - name: Check architecture and source imports
         run: npm run check:source && npm run audit:architecture
+      - name: Pin the seven-viewport Chromium smoke in the CI-only HTTP runner
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          const path='infrastructure/scripts/run-ci-http.sh';
+          const current=readFileSync(path,'utf8');
+          const hash=createHash('sha256').update(current).digest('hex');
+          if(hash!=='61bc70312d80939eb75592711b0900fde36de0cde4f01e527b2b2c9bd80aa359')throw Error('STOP: Unexpected HTTP harness checksum');
+          const before='  node infrastructure/scripts/verify-browser-acceptance.mjs';
+          if(current.split(before).length!==2)throw Error('STOP: Browser harness insertion point not unique');
+          const after=[
+            "  browser_code=0",
+            "  node infrastructure/scripts/verify-browser-acceptance.mjs || browser_code=$?",
+            "  matrix_code=0",
+            '  node "$GITHUB_WORKSPACE/ci-scripts/v11150-responsive-matrix.mjs" || matrix_code=$?',
+            '  if [[ "$browser_code" != 0 || "$matrix_code" != 0 ]]; then echo "Browser acceptance or seven-viewport matrix FAIL"; exit 1; fi'
+          ].join('\n');
+          writeFileSync(path,current.replace(before,after));
+          console.log('PASS: pinned CI-only Chromium matrix added without modifying product code');
+          NODE
       - name: Typecheck both API and web
         run: npm run typecheck
       - name: Lint when script exists
@@ -160,6 +181,11 @@ jobs:
         run: npm run db:migrate && npm run db:migrate
       - name: Check isolated PostgreSQL test target
         run: npm run check:e2e-target && npm run check:e2e-db
+      - name: Verify disposable PostgreSQL pg_dump and restore
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get install -y --no-install-recommends postgresql-client-16
+          bash "$GITHUB_WORKSPACE/ci-scripts/v11150-backup-restore.sh"
       - name: Install isolated Chromium and Playwright for real browser UI checks
         run: |
           npm install --prefix "$RUNNER_TEMP/thiendo-playwright" --no-save --no-package-lock --ignore-scripts playwright@1.56.1
@@ -179,6 +205,20 @@ jobs:
           if test -f api-ci.log; then tail -n 60 api-ci.log; else echo "No API log generated"; fi
           echo "::endgroup::"
           exit 1
+      - name: Report npm high/critical production dependency advisories
+        if: always()
+        run: |
+          npm audit --omit=dev --json > "$GITHUB_WORKSPACE/security-audit.json" || true
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          const result=JSON.parse(readFileSync(process.env.GITHUB_WORKSPACE+'/security-audit.json','utf8'));
+          const data=result.metadata?.vulnerabilities;
+          if(!data||result.error)throw Error('BLOCKED: npm audit registry response unavailable');
+          const high=Number(data.high||0),critical=Number(data.critical||0);
+          console.log('Production npm audit severity counts:',JSON.stringify(data));
+          if(high+critical>0)throw Error('NO-GO: High/critical production package advisories need triage');
+          console.log('PASS: no high/critical advisories reported by npm audit for this registry snapshot');
+          NODE
       - name: Collect browser acceptance and HTTP diagnostic logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -188,6 +228,7 @@ jobs:
             browser-evidence/**/*
             source/web-ci.log
             source/api-ci.log
+            security-audit.json
           if-no-files-found: ignore
           retention-days: 7
       - name: State remaining acceptance gates
