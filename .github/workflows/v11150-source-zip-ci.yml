@@ -158,7 +158,17 @@ jobs:
       - name: Check isolated PostgreSQL test target
         run: npm run check:e2e-target && npm run check:e2e-db
       - name: Live Next/Nest/PostgreSQL HTTP E2E (start and stop first-party servers safely)
-        run: bash infrastructure/scripts/run-ci-http.sh
+        run: |
+          if bash infrastructure/scripts/run-ci-http.sh; then
+            exit 0
+          fi
+          echo "::group::Next.js server diagnostic (last 100 lines)"
+          if test -f web-ci.log; then tail -n 100 web-ci.log; else echo "No Next.js log generated"; fi
+          echo "::endgroup::"
+          echo "::group::NestJS API server diagnostic (last 60 lines)"
+          if test -f api-ci.log; then tail -n 60 api-ci.log; else echo "No API log generated"; fi
+          echo "::endgroup::"
+          exit 1
       - name: State remaining acceptance gates
         if: always()
         working-directory: .
