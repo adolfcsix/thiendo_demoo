@@ -125,9 +125,12 @@ jobs:
               original = source.read_bytes()
               assert hashlib.sha256(original).hexdigest() == patch["originalSha256"], "Original source differs; do not apply overlay"
               text = original.decode("utf-8")
-              assert text.count(patch["from"]) == 1, "Expected exactly one stale SSR marker"
-              source.write_text(text.replace(patch["from"], patch["to"]), encoding="utf-8")
-          print("PASS — two pinned V11.150 homepage HTTP contract changes applied")
+              assert 1 <= len(patch["replacements"]) <= 3, "Unreviewed route contract patch"
+              for change in patch["replacements"]:
+                  assert text.count(change["from"]) == 1, "Expected exactly one route contract marker"
+                  text = text.replace(change["from"], change["to"])
+              source.write_text(text, encoding="utf-8")
+          print("PASS — three SHA-pinned SSR contract fixes (homepage, login gates, smoke diagnostics) applied")
           PY
       - name: Check Node/npm and lockfile
         run: |
