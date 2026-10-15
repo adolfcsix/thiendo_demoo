@@ -189,8 +189,9 @@ jobs:
         run: npm run db:migrate && npm run db:migrate
       - name: Check isolated PostgreSQL test target
         run: npm run check:e2e-target && npm run check:e2e-db
-      - name: Run PostgreSQL-backed HTTP API integration E2E
-        run: npm run test:e2e
+      - name: Live Next/Nest/PostgreSQL HTTP E2E with safe server lifecycle
+        run: |
+          bash infrastructure/scripts/run-ci-http.sh || { echo '::group::API diagnostic'; tail -n 70 api-ci.log || true; echo '::endgroup::'; echo '::group::Web diagnostic'; tail -n 70 web-ci.log || true; echo '::endgroup::'; exit 1; }
       - name: Test two independent admin owners, TOTP MFA and access isolation via real Nest HTTP
         run: npm run test:e2e:admin:151
       - name: Verify disposable PostgreSQL pg_dump and restore
