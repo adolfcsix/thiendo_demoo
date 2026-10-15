@@ -6,6 +6,7 @@ on:
       - "ci-source-b64/**"
       - "verification/v11150/migrations-immutable-baseline.json"
       - "ci-fixtures/v11150-required.json"
+      - "ci-overrides/**"
       - ".github/workflows/v11150-source-zip-ci.yml"
       - "THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip"
   workflow_dispatch:
@@ -112,6 +113,21 @@ jobs:
               target.parent.mkdir(parents=True, exist_ok=True)
               target.write_bytes(data)
           print("Restored 7 SHA-256 verified frozen regression fixtures")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          patches = json.loads(Path("ci-overrides/v11150-home-ssr-contract.json").read_text())["patches"]
+          assert len(patches) == 2, "Only two read-only route marker patches authorized"
+          for patch in patches:
+              assert patch["path"] in ["infrastructure/scripts/read-only-route-manifest.mjs", "tests/v105-api-identity.test.cjs"], patch["path"]
+              source = Path("source") / patch["path"]
+              original = source.read_bytes()
+              assert hashlib.sha256(original).hexdigest() == patch["originalSha256"], "Original source differs; do not apply overlay"
+              text = original.decode("utf-8")
+              assert text.count(patch["from"]) == 1, "Expected exactly one stale SSR marker"
+              source.write_text(text.replace(patch["from"], patch["to"]), encoding="utf-8")
+          print("PASS — two pinned V11.150 homepage HTTP contract changes applied")
           PY
       - name: Check Node/npm and lockfile
         run: |
