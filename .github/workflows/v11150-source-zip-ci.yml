@@ -5,6 +5,7 @@ on:
     paths:
       - "ci-source-b64/**"
       - "verification/v11150/migrations-immutable-baseline.json"
+      - "ci-fixtures/v11150-required.json"
       - ".github/workflows/v11150-source-zip-ci.yml"
       - "THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip"
   workflow_dispatch:
@@ -95,6 +96,23 @@ jobs:
           PY
           mkdir -p source/verification/v11150
           cp verification/v11150/migrations-immutable-baseline.json source/verification/v11150/migrations-immutable-baseline.json
+          python3 - <<'PY'
+          import base64, hashlib, json
+          from pathlib import Path
+          payload = json.loads(Path("ci-fixtures/v11150-required.json").read_text())
+          fixtures = payload["files"]
+          assert len(fixtures) == 7, "Unexpected historical regression fixture count"
+          for name, entry in fixtures.items():
+              assert name.startswith("previews/") or name == "docs/reports/V11_147_SOURCE_DEPTH_AUDIT.json", name
+              assert ".." not in Path(name).parts and not name.startswith("/"), name
+              data = base64.b64decode(entry["base64"], validate=True)
+              assert hashlib.sha256(data).hexdigest() == entry["sha256"], name
+              target = Path("source") / name
+              assert not target.exists(), "Fixture must not replace a checked-in source archive file"
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_bytes(data)
+          print("Restored 7 SHA-256 verified frozen regression fixtures")
+          PY
       - name: Check Node/npm and lockfile
         run: |
           node -v
