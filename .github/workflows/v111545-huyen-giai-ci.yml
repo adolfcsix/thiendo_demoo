@@ -224,6 +224,40 @@ jobs:
                   target.write_bytes(content_new)
           print('PASS: 13 GitHub committed SHA-verified Huyen Giai source delta files reconstructed.')
           PY
+      - name: Align migration restore and navigation regression contracts with V11.154.5
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from hashlib import sha256
+          patches = {
+            "infrastructure/production/restore-drill.sh": (
+              "37860aefb36522bae96cbc5079c12b3be0ad6f42a917d5705221fd75ee71fe4e",
+              [("('019_account_admin_mfa.sql'))","('019_account_admin_mfa.sql'),\\n    ('020_huyen_giai_ai.sql'))"),
+               ("count(*) FROM schema_migrations) < 19","count(*) FROM schema_migrations) < 20"),
+               ("verifiedMigrationNames:19","verifiedMigrationNames:20")]),
+            "infrastructure/production/ops-check.mjs": (
+              "adea92d3a7fa1de036add51e00bb6f7005fae9727f83d124813c5308a77a0cd9",
+              [("verifiedMigrationNames>=19","verifiedMigrationNames>=20")]),
+            "tests/v11149-1-restore-schema-contract.test.cjs": (
+              "9503e7cb0913ac3bc4eff76c09742f5980734424781045e9570b5ddee1b77d1c",
+              [("assert.equal(files.length,19","assert.equal(files.length,20"),
+               ("verifiedMigrationNames:19","verifiedMigrationNames:20"),
+               ("verifiedMigrationNames>=19","verifiedMigrationNames>=20")]),
+            "tests/v1181-navigation-tree.test.cjs": (
+              "983708c8b2d4be1542003578635bcf9905e36e1d2eca8beca5cd98b819cf5030",
+              [("['/','/huyen-hoc','/study','/birth-profiles','/collection']","['/','/huyen-hoc','/huyen-giai','/study','/birth-profiles','/collection']")]),
+          }
+          for name,(expected,changes) in patches.items():
+            path=Path(name)
+            source=path.read_bytes()
+            assert sha256(source).hexdigest()==expected,'Unexpected drift: '+name
+            content=source.decode('utf-8')
+            for before,after in changes:
+              assert content.count(before)==1,'Missing or duplicate contract: '+name
+              content=content.replace(before,after)
+            path.write_text(content)
+          print('PASS: migrations 001–020 and current navigation contracts updated with source SHA guards')
+          PY
       - name: V11.152 independent method inventory and frozen rule proof
         run: npm run audit:phase3:contracts && npm run test:v11152
       - name: Verify Huyen Giai data redaction, schema, citations and prompt-injection contracts
