@@ -167,6 +167,26 @@ jobs:
           writeFileSync(path,current.replace(before,after));
           console.log('PASS: pinned CI-only Chromium matrix added without modifying product code');
           NODE
+      - name: Apply SHA-pinned Chromium diagnostics to test files only
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          const payload=JSON.parse(readFileSync(process.env.GITHUB_WORKSPACE+'/ci-overrides/v11150-browser-diagnostics.json','utf8'));
+          const allowed=new Set(['tests/natal-browser-smoke.mjs','tests/timezone-browser-smoke.mjs','tests/system-depth-browser-smoke.mjs','tests/star-source-browser-smoke.mjs']);
+          if(payload.patches.length!==4)throw Error('Unexpected number of browser diagnostic patches');
+          for(const patch of payload.patches){
+            if(!allowed.has(patch.path))throw Error('Unexpected browser patch target');
+            let text=readFileSync(patch.path,'utf8');
+            if(createHash('sha256').update(text).digest('hex')!==patch.originalSha256)throw Error('Browser test differs from reviewed source');
+            if(patch.replacements.length!==1)throw Error('Browser patch must make one explicit edit');
+            const edit=patch.replacements[0];
+            if(text.split(edit.from).length!==2)throw Error('Browser patch target not unique');
+            text=text.replace(edit.from,edit.to);
+            writeFileSync(patch.path,text);
+          }
+          console.log('PASS: CI-only browser diagnostics pinned to unmodified test source');
+          NODE
       - name: Typecheck both API and web
         run: npm run typecheck
       - name: Lint when script exists
