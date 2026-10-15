@@ -1,0 +1,17 @@
+{
+  "purpose": "V11.150 current homepage SSR marker: keep contract test aligned with real UI, no UI change",
+  "patches": [
+    {
+      "path": "infrastructure/scripts/read-only-route-manifest.mjs",
+      "originalSha256": "dae27d7dc8753c42354ac6dc16754ac0b177f6311764dbbf40b6d62b6ba597c4",
+      "from": "{path:'/', marker:'Khám phá vận đồ'}",
+      "to": "{path:'/', marker:'Một thư phòng.'}"
+    },
+    {
+      "path": "tests/v105-api-identity.test.cjs",
+      "originalSha256": "ef0ac59a12377caa7695ce7a5ae43ee90674725f912b47092a8a7ead51119805",
+      "from": "['/', 'Khám phá vận đồ']",
+      "to": "['/', 'Một thư phòng.']"
+    }
+  ]
+}
