@@ -204,7 +204,7 @@ jobs:
           from zipfile import ZipFile
           b64=Path('ci-source-v111545/source-delta.zip.base64').read_bytes()
           content=base64.b64decode(b''.join(b64.split()),validate=True)
-          assert hashlib.sha256(content).hexdigest()=='f3fd1f97c08a9187242b31f3d7d77410895849bd7f8158b7d4d52a3ed3b9f7b3','V11.154.5 source delta mismatch'
+          assert hashlib.sha256(content).hexdigest()=='7a7e55cb8deb04c0522c65aeed8b2a29b06d86f672c5e8ea2e40ec2f7a03dec5','V11.154.5 source delta mismatch'
           with ZipFile(io.BytesIO(content)) as archive:
               payload=json.loads(archive.read('V11_154_5_PATCH_MANIFEST.json'))
               entries=payload['files']
