@@ -12,6 +12,12 @@
       "originalSha256": "ef0ac59a12377caa7695ce7a5ae43ee90674725f912b47092a8a7ead51119805",
       "from": "['/', 'Khám phá vận đồ']",
       "to": "['/', 'Một thư phòng.']"
+    },
+    {
+      "path": "tests/next-proxy-smoke.mjs",
+      "originalSha256": "589334ce55a343aa0fcaa2e8628726f939ce3c45a0391626b3e686928628118d",
+      "from": "  assert.ok(html.includes('<html') && html.includes(route.marker),",
+      "to": "  if (!html.includes(route.marker)) console.error('SSR_ROUTE_DIAGNOSTIC', route.path, 'length', html.length, 'BODY', html.slice(0, 4500));\n  assert.ok(html.includes('<html') && html.includes(route.marker),"
     }
   ]
 }
