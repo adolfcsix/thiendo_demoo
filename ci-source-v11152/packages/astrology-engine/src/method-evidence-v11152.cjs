@@ -9,7 +9,7 @@ const {readFileSync,existsSync}=require('node:fs');
 const {resolve,relative,dirname,extname}=require('node:path');
 const manifest=require('../../../verification/v11152/method-coverage.json');
 const SCHEMA_VERSION=1;
-const REGISTRY=new Map(manifest.disciplines.map(row=>[row.methodId,row]));
+const REGISTRY=new Map(manifest.disciplines.map(row=>[row.methodId,Object.freeze({...row,pathsPresent:Object.freeze({...row.pathsPresent})})]));
 const toSha=s=>createHash('sha256').update(s).digest('hex');
 const HASH=/^[a-f0-9]{64}$/;
 function strictStringify(value){
