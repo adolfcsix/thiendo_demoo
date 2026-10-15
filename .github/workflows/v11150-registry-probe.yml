@@ -1,0 +1,29 @@
+name: "Thiên Đồ V11.150 - Registry probe only"
+on:
+  push:
+    branches: ["audit/v11.150"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  registry-probe:
+    name: npm registry / pinned tarball availability (NOT full CI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check npm registry, DNS, and yoctocolors-cjs@2.1.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
+          npm config get registry
+          npm ping --fetch-retries=1 --fetch-timeout=15000
+          npm view yoctocolors-cjs@2.1.3 version dist.tarball dist.integrity --json
+      - name: Scope notice
+        run: |
+          echo "Registry probe only; V11.150 source, npm ci, typecheck, build, PostgreSQL and E2E NOT yet validated by this workflow."

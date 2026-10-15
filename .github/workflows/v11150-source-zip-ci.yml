@@ -1,0 +1,117 @@
+name: "Thiên Đồ V11.150 — Full source archive CI"
+on:
+  push:
+    branches: ["audit/v11.150"]
+    paths:
+      - "THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: v11150-source-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  source-audit:
+    name: "Lockfile · npm ci · Typecheck · Build · Tests · PostgreSQL E2E"
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: thiendo
+          POSTGRES_PASSWORD: thiendo_ci_only
+          POSTGRES_DB: thiendo_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U thiendo -d thiendo_test"
+          --health-interval 5s --health-timeout 5s --health-retries 15
+    env:
+      DATABASE_URL: "postgresql://thiendo:thiendo_ci_only@127.0.0.1:5432/thiendo_test"
+      WEB_ORIGIN: "http://127.0.0.1:3000"
+      COOKIE_SECURE: "false"
+      API_PORT: "8080"
+      API_HOST: "127.0.0.1"
+      E2E_LOCAL_DB_CONFIRM: "YES"
+      NEXT_BASE_URL: "http://127.0.0.1:3000"
+      API_BASE_URL: "http://127.0.0.1:3000"
+      API_INTERNAL_URL: "http://127.0.0.1:8080"
+      CI: "true"
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: source
+    steps:
+      - name: Checkout audit branch only
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate signed-off ZIP hash, member paths and manifest before extraction
+        working-directory: .
+        run: |
+          set -euo pipefail
+          echo "dab5b902d5557d08d5eaab7d5853778505f05248c22a26c723b31fbe954dc0a2  THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip" | sha256sum --check
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import hashlib, json
+          archive = Path("THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip")
+          dest = Path("source")
+          with ZipFile(archive) as z:
+              names = z.namelist()
+              expected = json.loads(z.read("PUBLIC_CI_SOURCE_MANIFEST.json"))["sha256"]
+              assert len(expected) == 1855, "Unexpected source count"
+              assert set(names) == set(expected) | {"PUBLIC_CI_SOURCE_MANIFEST.json"}, "Manifest members mismatch"
+              for info in z.infolist():
+                  name = info.filename
+                  parts = Path(name).parts
+                  assert not name.startswith("/") and ".." not in parts and "\\" not in name, "Unsafe ZIP entry"
+                  assert not (info.external_attr >> 16) & 0o170000 == 0o120000, "Symlink rejected"
+                  if name in expected:
+                      assert hashlib.sha256(z.read(name)).hexdigest() == expected[name], "File integrity mismatch: " + name
+              dest.mkdir()
+              z.extractall(dest)
+          print("PASS — exact archive hash, 1,855 source-file hashes, safe paths and extraction")
+          PY
+      - name: Check Node/npm and lockfile
+        run: |
+          node -v
+          npm -v
+          npm config get registry
+          npm run check:lockfile
+      - name: V11.150 source stability gate
+        run: npm run audit:stability:150
+      - name: Install pinned dependencies using strict lockfile
+        run: npm ci --no-audit --no-fund
+      - name: Verify installed workspace CLI dependencies
+        run: node infrastructure/scripts/dependency-install-check.mjs
+      - name: Check architecture and source imports
+        run: npm run check:source && npm run audit:architecture
+      - name: Typecheck both API and web
+        run: npm run typecheck
+      - name: Lint when script exists
+        run: npm run lint --if-present
+      - name: Build both API and web
+        run: npm run build
+      - name: Full project test suite
+        run: npm test
+      - name: Assert disposable database is empty before migrations
+        run: npm run check:e2e-pre-migrate
+      - name: Migrate twice to test idempotency
+        run: npm run db:migrate && npm run db:migrate
+      - name: Check isolated PostgreSQL test target
+        run: npm run check:e2e-target && npm run check:e2e-db
+      - name: Run PostgreSQL API integration E2E
+        run: npm run test:e2e
+      - name: State remaining acceptance gates
+        if: always()
+        working-directory: .
+        run: |
+          echo "V11.150 remains NO-GO until real HTTP/browser acceptance, OAuth/payments and deployment safety gates are separately verified." >> "$GITHUB_STEP_SUMMARY"
+          echo "No website deployment or production credential usage is part of this job." >> "$GITHUB_STEP_SUMMARY"
