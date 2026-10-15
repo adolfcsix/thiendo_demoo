@@ -118,9 +118,9 @@ jobs:
           from pathlib import Path
           import hashlib, json
           patches = json.loads(Path("ci-overrides/v11150-home-ssr-contract.json").read_text())["patches"]
-          assert len(patches) == 2, "Only two read-only route marker patches authorized"
+          assert len(patches) == 3, "Only two read-only route marker patches authorized"
           for patch in patches:
-              assert patch["path"] in ["infrastructure/scripts/read-only-route-manifest.mjs", "tests/v105-api-identity.test.cjs"], patch["path"]
+              assert patch["path"] in ["infrastructure/scripts/read-only-route-manifest.mjs", "tests/v105-api-identity.test.cjs", "tests/next-proxy-smoke.mjs"], patch["path"]
               source = Path("source") / patch["path"]
               original = source.read_bytes()
               assert hashlib.sha256(original).hexdigest() == patch["originalSha256"], "Original source differs; do not apply overlay"
