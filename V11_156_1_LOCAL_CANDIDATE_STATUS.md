@@ -7,7 +7,7 @@ Date: 2026-10-15. Source snapshot created locally and exported via this ChatGPT 
 - 223/223 TS/TSX syntax-parsed, 663 JS syntax-checked, 1884 relative imports inspected; source integrity gate PASS.
 - Architecture: 389 files, 1471 imports, zero violations.
 - Lockfile structural check PASS; offline `npm ci` BLOCKED because `yoctocolors-cjs@2.1.3` is not cached in this isolated runtime.
-- Full ZIP: **1942 files**, exact archive SHA-256 `b89f18a1f43dd60341b329ef3460f28e500e59e2bb89f91958698a45e0d3a690`.
+- Full ZIP: **1942 files**, exact archive SHA-256 `2c009388f4d1bec0712350e43fb28cc8ad5f894d87960d050a085eb91aabd1af`.
 
 ## Functional changes in source candidate
 - Secure Markdown renderer: headings/TOC, tables, code, safe links, internal image references; no raw HTML execution.
