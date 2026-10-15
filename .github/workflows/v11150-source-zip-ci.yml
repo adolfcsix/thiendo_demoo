@@ -4,6 +4,8 @@ on:
     branches: ["audit/v11.150"]
     paths:
       - "ci-source-b64/**"
+      - "verification/v11150/migrations-immutable-baseline.json"
+      - ".github/workflows/v11150-source-zip-ci.yml"
       - "THIEN_DO_V11_150_PUBLIC_CI_SOURCE_REVIEW.zip"
   workflow_dispatch:
 permissions:
@@ -91,6 +93,8 @@ jobs:
               z.extractall(dest)
           print("PASS — exact archive hash, 1,855 source-file hashes, safe paths and extraction")
           PY
+          mkdir -p source/verification/v11150
+          cp verification/v11150/migrations-immutable-baseline.json source/verification/v11150/migrations-immutable-baseline.json
       - name: Check Node/npm and lockfile
         run: |
           node -v
